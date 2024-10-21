@@ -1,6 +1,6 @@
-# Welcome to lambda-function-01
+# Welcome to 01-simple-lambda-function
 
-This is a simple lambda function that returns a message and is deployed to localstack.
+This is a simple lambda function that returns a message and is deployed to localstack via CDKLOCAL.
 
 # Prerequisites
 
