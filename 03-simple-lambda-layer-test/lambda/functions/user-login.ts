@@ -1,20 +1,28 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { validateToken } from '../layers/auth/nodejs';
+import { validateToken } from '/opt/auth';
 
 const { execSync } = require('child_process');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
 
+let combinedOutput = '';
+
   try {
-    console.log('========== user-login function execution ==========');
-    const output = execSync('ls -la /opt/nodejs').toString();
-    console.log('Contents of /opt/nodejs:', output);
-    const indexts = execSync('cat /opt/nodejs/index.ts').toString();
-    console.log('Contents of /opt/nodejs/index.ts:', indexts);
-    const nodeModules = execSync('ls -la /opt/nodejs/node_modules').toString();
-    console.log('Contents of /opt/nodejs/node_modules:', nodeModules);
+    console.log('========== function content ==========');
+    const varTaskLa = execSync('ls -la /var/task').toString();
+    const varTaskR = execSync('ls -R /var/task').toString();
+    combinedOutput += 'Contents of /var/task (ls -la):\n' + varTaskLa + '\n';
+    combinedOutput += 'Contents of /var/task (ls -R):\n' + varTaskR + '\n';
+
+    console.log('========== layer content ==========');
+    const optLa = execSync('ls -la /opt').toString();
+    const optR = execSync('ls -R /opt').toString();
+    combinedOutput += 'Contents of /opt (ls -la):\n' + optLa + '\n';
+    combinedOutput += 'Contents of /opt (ls -R):\n' + optR + '\n';
+
+    console.log(combinedOutput)
   } catch (error) {
-    console.error('Error listing /opt/nodejs:', error);
+    console.error('Error listing directories:', error);
   }
 
   const { username, password } = JSON.parse(event.body || '{}');

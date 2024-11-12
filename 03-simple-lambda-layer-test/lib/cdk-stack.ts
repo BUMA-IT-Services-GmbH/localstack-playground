@@ -22,7 +22,12 @@ export class CdkStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: "handler",
       layers: [tokenValidationLayer],
+      functionName: 'UserLoginFunction',
     });
+
+    // Override the default logical name
+    (tokenValidationLayer.node.defaultChild as lambda.CfnLayerVersion).overrideLogicalId('TokenValidationLayer');
+    (userLoginFunction.node.defaultChild as lambda.CfnFunction).overrideLogicalId('UserLoginFunction');
 
     // output the Lambda function names
     new cdk.CfnOutput(this, 'UserLoginFunctionNameOutput', {
