@@ -26,10 +26,8 @@
     ],
     "baseUrl": ".",
     "paths": {
-      //"/opt/nodejs/services/*": ["common/services/*"]
-      "/opt/nodejs/lambda-layers/*" : ["lambda/layers/*"]
+      "/opt/auth" : ["lambda/layers/auth/nodejs/validateToken"]
     },
-    //"outDir": "./dist"
   },
   "exclude": [
     "node_modules",

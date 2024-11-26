@@ -1,13 +1,13 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
-import { validateToken } from '/opt/nodejs/lambda-layers/auth';
+import { validateToken } from '/opt/auth';
 
 const { execSync } = require('child_process');
 
 export const handler: APIGatewayProxyHandler = async (event) => {
 
   try {
-    const output = execSync('ls -la /opt/nodejs').toString();
-    console.log('Contents of /opt/nodejs:', output);
+    console.log('Recursive contents of functions @ /var/task:', execSync('ls -R /var/task').toString());
+    console.log('Recursive contents of layers @ /opt:', execSync('ls -R /opt').toString());
   } catch (error) {
     console.error('Error listing /opt/nodejs:', error);
   }
