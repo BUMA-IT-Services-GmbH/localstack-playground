@@ -6,7 +6,8 @@
     "build-old": "rm -rf dist && tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "all": "npm run build && cdklocal synth && cdklocal deploy --all --context 'localstack.host=localhost' --context 'localstack.port=4566'"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.145",
