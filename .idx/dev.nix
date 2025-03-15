@@ -7,6 +7,7 @@
   # Use https://search.nixos.org/packages to find packages
   packages = [
     pkgs.maven #remove the comment
+    pkgs.temurin-bin-17
     # pkgs.go
     # pkgs.python311
     # pkgs.python311Packages.pip
