@@ -36,10 +36,9 @@ public class DemoApplication {
 			
 			Person person = awsS3Client.mapContent(content -> {
 				try {
-                    String contentString = new String(content, StandardCharsets.UTF_8);
                     ObjectMapper mapper = new ObjectMapper();
 					ObjectReader objectReader = mapper.readerFor(Person.class);
-                    return objectReader.readValue(contentString);
+                    return objectReader.readValue(content);
                 } catch (IOException e) {
                     throw new RuntimeException("Error mapping content to Person object", e);
                 }

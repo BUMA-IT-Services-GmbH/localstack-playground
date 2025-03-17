@@ -13,6 +13,7 @@ import org.apache.commons.compress.utils.IOUtils;
 import org.slf4j.Logger;
 
 import org.slf4j.LoggerFactory;
+import org.springframework.util.StringUtils;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.ResponseBytes;
@@ -26,6 +27,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.zip.GZIPInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.function.Function;
 
 @Component
@@ -44,40 +46,55 @@ public class AwsS3Client {
     private final String bucketName;
 
 
-    public void downloadFile(String key) {
-        logger.info("Starting download of file {} from bucket {}", key, bucketName);
+    public void downloadFile(String s3Url) {
+        logger.info("Starting download of file {} ", s3Url);
+        String[] parts = s3Url.split("/");
+        if (parts.length < 4 || !s3Url.startsWith("s3://")) {
+            throw new IllegalArgumentException("Invalid S3 URL format: " + s3Url);
+        }
+
+        String bucket = parts[2];
+        String key = String.join("/", java.util.Arrays.copyOfRange(parts, 3, parts.length));
+
+        logger.info("Bucket {}  and key {}", bucket, key);
+
         S3Client s3Client = getS3Client();
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-                .bucket(bucketName)
+                .bucket(bucket)
                 .key(key)
                 .build();
 
         ResponseBytes<GetObjectResponse> objectBytes;
         try {
             objectBytes = s3Client.getObjectAsBytes(getObjectRequest);
+            
             byte[] fileBytes = objectBytes.asByteArray();
             if (key.endsWith(".gz")) {
                 try (GZIPInputStream gzipInputStream = new GZIPInputStream(new ByteArrayInputStream(fileBytes))) {
                     logger.info("Unzipping content of file: {}", key);
-                    this.fileContent = IOUtils.toByteArray(gzipInputStream);
+                     fileBytes = IOUtils.toByteArray(gzipInputStream);
                 } catch (IOException e) {
                     throw new RuntimeException("Error unzipping content from gzipped file " + key, e);
                 }
-            } else {
+            }
+            if (fileBytes != null) {
                 this.fileContent = fileBytes;
             }
         } catch (Exception e) {
             logger.error("Error downloading file from S3", e);
             throw new RuntimeException("Error downloading file from S3", e);
         }
-        logger.info("Successfully downloaded file {} from bucket {}", key, bucketName);
+        logger.info("Successfully downloaded file {} ", s3Url);
     }
 
-    public byte[] getContentAsByteArray() {
-        if (Objects.isNull(this.fileContent)) {
-            throw new IllegalStateException("No content loaded");
+
+    public <R> R mapContent(Function<String, R> mapper) {
+
+        if (Objects.isNull(this.fileContent) ) {
+            throw new IllegalStateException("No content available");
         }
-        return this.fileContent;
+        String fileAsString = new String(this.fileContent, StandardCharsets.UTF_8);
+        return mapper.apply(fileAsString);
     }
 
     public <R> R mapContent(Function<byte[], R> mapper) {
@@ -85,7 +102,6 @@ public class AwsS3Client {
             throw new IllegalStateException("No content loaded");
             }
         return mapper.apply(this.fileContent);
-
     }
 
     public S3Client getS3Client() {
