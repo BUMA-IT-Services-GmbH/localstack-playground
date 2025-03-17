@@ -64,11 +64,6 @@
 
 		<dependency>
 			<groupId>software.amazon.awssdk</groupId>
-			<artifactId>s3</artifactId>
-			<version>2.25.11</version>
-		</dependency>
-		<dependency>
-			<groupId>software.amazon.awssdk</groupId>
 			<artifactId>aws-core</artifactId>
 			<version>2.25.11</version>
 		</dependency>
@@ -77,6 +72,21 @@
 			<artifactId>regions</artifactId>
 			<version>2.25.11</version>
 		</dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.25.11</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.16.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>1.21</version>
+        </dependency>
 	</dependencies>
 
 	<build>
@@ -99,7 +109,7 @@
 				<configuration>
 					<excludes>
 						<exclude>
-							<groupId>org.projectlombok</groupId>
+							<groupId>org.projectlombok</groupId>			
 							<artifactId>lombok</artifactId>
 						</exclude>
 					</excludes>

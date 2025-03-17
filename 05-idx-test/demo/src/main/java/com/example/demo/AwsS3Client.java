@@ -1,6 +1,17 @@
+// Suggested code may be subject to a license. Learn more: ~LicenseLog:2470603249.
+// Suggested code may be subject to a license. Learn more: ~LicenseLog:1034334290.
+// Suggested code may be subject to a license. Learn more: ~LicenseLog:430179182.
+// Suggested code may be subject to a license. Learn more: ~LicenseLog:2072146111.
+// Suggested code may be subject to a license. Learn more: ~LicenseLog:2515052527.
 package com.example.demo;
 
+import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.stereotype.Component;
+import org.apache.commons.compress.utils.IOUtils;
 import org.slf4j.Logger;
+
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -8,58 +19,80 @@ import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 
-import java.io.FileOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
+import java.util.Objects;
+import java.util.zip.GZIPInputStream;
+import java.util.function.Function;
 
+@Component
+@EnableConfigurationProperties
+@ConfigurationProperties(prefix = "aws.s3")
+@RequiredArgsConstructor
 public class AwsS3Client {
+
+    private byte[] fileContent;
 
     private static final Logger logger = LoggerFactory.getLogger(AwsS3Client.class);
 
-    private final String accessKeyId;
+    private final String accessKeyId ;
     private final String secretAccessKey;
     private final String region;
     private final String bucketName;
-    private final String accountId;
 
-    public AwsS3Client(String accessKeyId, String secretAccessKey, String region, String bucketName, String accountId) {
-        this.accessKeyId = accessKeyId;
-        this.secretAccessKey = secretAccessKey;
-        this.region = region;
-        this.bucketName = bucketName;
-        this.accountId = accountId;
-    }
 
-    public void downloadFile(String key, String destinationFilePath) {
-        logger.info("Starting download of file {} from bucket {} to {}", key, bucketName, destinationFilePath);
+    public void downloadFile(String key) {
+        logger.info("Starting download of file {} from bucket {}", key, bucketName);
+        S3Client s3Client = getS3Client();
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .build();
+
+        ResponseBytes<GetObjectResponse> objectBytes;
         try {
-            S3Client s3Client = getS3Client();
-            GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-                    .bucket(bucketName)
-                    .key(key)
-                    .build();
-
-            ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(getObjectRequest);
-
-            try (OutputStream outputStream = new FileOutputStream(destinationFilePath)) {
-                outputStream.write(objectBytes.asByteArray());
+            objectBytes = s3Client.getObjectAsBytes(getObjectRequest);
+            byte[] fileBytes = objectBytes.asByteArray();
+            if (key.endsWith(".gz")) {
+                try (GZIPInputStream gzipInputStream = new GZIPInputStream(new ByteArrayInputStream(fileBytes))) {
+                    logger.info("Unzipping content of file: {}", key);
+                    this.fileContent = IOUtils.toByteArray(gzipInputStream);
+                } catch (IOException e) {
+                    throw new RuntimeException("Error unzipping content from gzipped file " + key, e);
+                }
+            } else {
+                this.fileContent = fileBytes;
             }
-
-            logger.info("Successfully downloaded file {} from bucket {} to {}", key, bucketName, destinationFilePath);
-        } catch (IOException | RuntimeException e) {
+        } catch (Exception e) {
             logger.error("Error downloading file from S3", e);
             throw new RuntimeException("Error downloading file from S3", e);
         }
+        logger.info("Successfully downloaded file {} from bucket {}", key, bucketName);
+    }
+
+    public byte[] getContentAsByteArray() {
+        if (Objects.isNull(this.fileContent)) {
+            throw new IllegalStateException("No content loaded");
+        }
+        return this.fileContent;
+    }
+
+    public <R> R mapContent(Function<byte[], R> mapper) {
+        if (Objects.isNull(this.fileContent)) {
+            throw new IllegalStateException("No content loaded");
+            }
+        return mapper.apply(this.fileContent);
+
     }
 
     public S3Client getS3Client() {
         logger.info("Creating S3 client for region: {} and bucket {}", region, bucketName);
         S3Client s3Client = S3Client.builder()
                 .region(Region.of(region))
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKeyId, secretAccessKey)))
-                .build();
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKeyId, secretAccessKey)))            .build();
         return s3Client;
     }
 }
