@@ -97,13 +97,6 @@ public class AwsS3Client {
         return mapper.apply(fileAsString);
     }
 
-    public <R> R mapContent(Function<byte[], R> mapper) {
-        if (Objects.isNull(this.fileContent)) {
-            throw new IllegalStateException("No content loaded");
-            }
-        return mapper.apply(this.fileContent);
-    }
-
     public S3Client getS3Client() {
         logger.info("Creating S3 client for region: {} and bucket {}", region, bucketName);
         S3Client s3Client = S3Client.builder()
