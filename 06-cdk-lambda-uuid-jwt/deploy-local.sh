@@ -35,7 +35,7 @@ npx cdklocal bootstrap --require-approval never
 
 # Run deploy using cdklocal
 echo "🛠 Deploying to LocalStack..."
-npx cdklocal deploy --require-approval never
+npx cdklocal deploy --all --require-approval never
 
 # Get API endpoint from stack output
 endpoint=$(aws --endpoint-url=http://localhost:4566 cloudformation describe-stacks \
