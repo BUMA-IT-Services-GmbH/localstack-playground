@@ -7,6 +7,16 @@ COLOR_YELLOW="\033[1;33m"
 COLOR_RED="\033[0;31m"
 COLOR_RESET="\033[0m"
 
+print_help() {
+  echo -e "\n${COLOR_GREEN}🧹 Usage: ./deploy-local.sh [options]${COLOR_RESET}"
+  echo ""
+  echo "Options:"
+  echo "  --openBrowser      Choose (yes/no) whether or not your default browser shall be opened and the endpoint of the ApiGW shall be called"
+  echo "  --curl             Choose (yes/no) whether or not curl should be used to call the endpoint of the ApiGW - rquires curl and jq to be installed"
+  echo "  --help             Show this help message"
+  echo ""
+}
+
 # Default options
 open_browser="yes"
 use_curl="yes"
@@ -19,6 +29,10 @@ for arg in "$@"; do
       ;;
     --curl=*)
       use_curl="${arg#*=}"
+      ;;
+    --help)
+      print_help
+      exit 0
       ;;
     *)
       echo -e "${COLOR_RED}❌ Unknown option: $arg${COLOR_RESET}"
