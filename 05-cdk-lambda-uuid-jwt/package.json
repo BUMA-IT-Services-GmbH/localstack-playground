@@ -1,0 +1,30 @@
+{
+  "name": "cdk-lambda-uuid-demo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "bootstrap": "cdklocal bootstrap",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "constructs": "^10.4.2",
+    "jsonwebtoken": "^9.0.2",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^24.0.14",
+    "@types/uuid": "^10.0.0",
+    "aws-cdk": "^2.1021.0",
+    "aws-cdk-lib": "^2.206.0",
+    "aws-cdk-local": "^3.0.1",
+    "esbuild": "^0.25.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
