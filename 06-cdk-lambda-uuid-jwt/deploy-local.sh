@@ -1,6 +1,11 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
+
+COLOR_GREEN="\033[0;32m"
+COLOR_YELLOW="\033[1;33m"
+COLOR_RED="\033[0;31m"
+COLOR_RESET="\033[0m"
 
 # Default options
 open_browser="yes"
@@ -11,14 +16,12 @@ for arg in "$@"; do
   case $arg in
     --openBrowser=*)
       open_browser="${arg#*=}"
-      shift
       ;;
     --curl=*)
       use_curl="${arg#*=}"
-      shift
       ;;
     *)
-      echo "Unknown option: $arg"
+      echo -e "${COLOR_RED}❌ Unknown option: $arg${COLOR_RESET}"
       exit 1
       ;;
   esac
@@ -26,36 +29,64 @@ done
 
 # Optional: load environment variables
 if [ -f ".env.localstack" ]; then
+  echo -e "${COLOR_GREEN}📄 Loading environment from .env.localstack...${COLOR_RESET}"
   source .env.localstack
 fi
 
-# Run CDK bootstrap
-echo "🔧 Bootstrapping LocalStack environment..."
+# Bootstrap environment
+echo -e "${COLOR_GREEN}🔧 Bootstrapping LocalStack environment...${COLOR_RESET}"
 npx cdklocal bootstrap --require-approval never
 
-# Run deploy using cdklocal
-echo "🛠 Deploying to LocalStack..."
-npx cdklocal deploy --all --require-approval never
+# List available stacks from CDK app
+echo -e "${COLOR_GREEN}📋 Listing available stacks in the CDK app...${COLOR_RESET}"
+STACKS_RAW=$(npx cdklocal list)
+STACKS=($(echo "$STACKS_RAW"))
 
-# Get API endpoint from stack output
-endpoint=$(aws --endpoint-url=http://localhost:4566 cloudformation describe-stacks \
-  --stack-name CdkLambdaUuidDemoStack \
-  --query "Stacks[0].Outputs[?OutputKey=='ApiEndpoint'].OutputValue" \
-  --output text)
-
-# Check if endpoint is not empty
-if [[ -n "$endpoint" ]]; then
-  echo "📦 API Endpoint: $endpoint"
-
-  if [[ "$open_browser" == "yes" ]]; then
-    echo "🌐 Opening in browser..."
-    open "$endpoint"  # macOS only; use xdg-open on Linux
-  fi
-
-  if [[ "$use_curl" == "yes" ]]; then
-    echo "🔁 Testing via curl..."
-    curl -s "$endpoint" | jq
-  fi
-else
-  echo "❌ Could not find API endpoint in stack outputs."
+if [[ ${#STACKS[@]} -eq 0 ]]; then
+  echo -e "${COLOR_YELLOW}⚠️  No stacks defined in your CDK app.${COLOR_RESET}"
+  exit 1
 fi
+
+# Stack selection
+if command -v fzf &> /dev/null; then
+  echo -e "${COLOR_GREEN}🔽 Select stacks to deploy (use tab to select, enter to confirm):${COLOR_RESET}"
+  SELECTED_STACKS=($(echo "${STACKS[@]}" | tr ' ' '\n' | fzf -m --prompt="Select stacks to deploy: "))
+else
+  echo -e "${COLOR_YELLOW}⚠️  fzf not found. Deploying all stacks.${COLOR_RESET}"
+  SELECTED_STACKS=("${STACKS[@]}")
+fi
+
+if [[ ${#SELECTED_STACKS[@]} -eq 0 ]]; then
+  echo -e "${COLOR_YELLOW}⚠️  No stacks selected. Aborting.${COLOR_RESET}"
+  exit 0
+fi
+
+# Deploy selected stacks
+for stack in "${SELECTED_STACKS[@]}"; do
+  echo -e "${COLOR_GREEN}🚀 Deploying stack: $stack${COLOR_RESET}"
+  npx cdklocal deploy "$stack" --require-approval never
+done
+
+# Try to detect API Gateway endpoint from outputs
+for stack in "${SELECTED_STACKS[@]}"; do
+  endpoint=$(aws --endpoint-url=http://localhost:4566 cloudformation describe-stacks \
+    --stack-name "$stack" \
+    --query "Stacks[0].Outputs[?OutputKey=='ApiEndpoint'].OutputValue" \
+    --output text 2>/dev/null || true)
+
+  if [[ -n "$endpoint" && "$endpoint" != "None" ]]; then
+    echo -e "${COLOR_GREEN}📦 API Endpoint for $stack: $endpoint${COLOR_RESET}"
+
+    if [[ "$open_browser" == "yes" ]]; then
+      echo -e "${COLOR_GREEN}🌐 Opening in browser...${COLOR_RESET}"
+      open "$endpoint"  # macOS only
+    fi
+
+    if [[ "$use_curl" == "yes" ]]; then
+      echo -e "${COLOR_GREEN}🔁 Testing via curl...${COLOR_RESET}"
+      curl -s "$endpoint" | jq
+    fi
+  fi
+done
+
+echo -e "${COLOR_GREEN}✅ Deployment complete.${COLOR_RESET}"
