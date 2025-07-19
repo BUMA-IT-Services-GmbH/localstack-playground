@@ -12,7 +12,7 @@ print_help() {
   echo ""
   echo "Options:"
   echo "  --openBrowser      Choose (yes/no) whether or not your default browser shall be opened and the endpoint of the ApiGW shall be called"
-  echo "  --curl             Choose (yes/no) whether or not curl should be used to call the endpoint of the ApiGW - rquires curl and jq to be installed"
+  echo "  --curl             Choose (yes/no) whether or not curl should be used to call the endpoint of the ApiGW - requires curl and jq to be installed"
   echo "  --help             Show this help message"
   echo ""
 }
@@ -81,26 +81,82 @@ for stack in "${SELECTED_STACKS[@]}"; do
   npx cdklocal deploy "$stack" --require-approval never
 done
 
-# Try to detect API Gateway endpoint from outputs
+# Collect and handle API Gateway endpoints
+endpoints_keys=()
+endpoints_values=()
+
 for stack in "${SELECTED_STACKS[@]}"; do
-  endpoint=$(aws --endpoint-url=http://localhost:4566 cloudformation describe-stacks \
+  raw=$(aws --endpoint-url=http://localhost:4566 cloudformation describe-stacks \
     --stack-name "$stack" \
-    --query "Stacks[0].Outputs[?OutputKey=='ApiEndpoint'].OutputValue" \
+    --query "Stacks[0].Outputs[?contains(OutputKey, 'ApiEndpoint') || contains(OutputKey, 'Endpoint') || contains(OutputKey, 'Url')].OutputValue" \
     --output text 2>/dev/null || true)
-
-  if [[ -n "$endpoint" && "$endpoint" != "None" ]]; then
-    echo -e "${COLOR_GREEN}📦 API Endpoint for $stack: $endpoint${COLOR_RESET}"
-
-    if [[ "$open_browser" == "yes" ]]; then
-      echo -e "${COLOR_GREEN}🌐 Opening in browser...${COLOR_RESET}"
-      open "$endpoint"  # macOS only
-    fi
-
-    if [[ "$use_curl" == "yes" ]]; then
-      echo -e "${COLOR_GREEN}🔁 Testing via curl...${COLOR_RESET}"
-      curl -s "$endpoint" | jq
-    fi
+  if [[ -n "$raw" && "$raw" != "None" ]]; then
+    endpoints_keys+=("$stack")
+    endpoints_values+=("$raw")
   fi
 done
+
+if [[ ${#endpoints_keys[@]} -eq 0 ]]; then
+  echo -e "${COLOR_YELLOW}⚠️  No API Gateway endpoints found.${COLOR_RESET}"
+else
+  echo -e "${COLOR_GREEN}🌐 Available API Endpoints:${COLOR_RESET}"
+  i=1
+  for ((j=0; j<${#endpoints_keys[@]}; j++)); do
+    stack="${endpoints_keys[$j]}"
+    endpoint="$(echo "${endpoints_values[$j]}" | head -n 1 | awk '{print $1}' | xargs)"
+    echo -e "  [$i] ${COLOR_YELLOW}$stack${COLOR_RESET} → $endpoint"
+    index_map[$i]=$j
+    ((i++))
+  done
+
+  echo -e "  [$i] ${COLOR_YELLOW}All${COLOR_RESET} → All endpoints"
+  all_option=$i
+
+  echo -e "\n${COLOR_GREEN}🔢 Enter the number of the endpoint you want to open/curl (or press enter to skip):${COLOR_RESET}"
+  read -r choice
+
+  if [[ -n "$choice" && "$choice" =~ ^[0-9]+$ ]]; then
+    if [[ "$choice" -eq "$all_option" ]]; then
+      echo -e "${COLOR_GREEN}📦 Selected: All endpoints${COLOR_RESET}"
+      for ((j=0; j<${#endpoints_keys[@]}; j++)); do
+        endpoint="$(echo "${endpoints_values[$j]}" | head -n 1 | awk '{print $1}' | xargs)"
+        echo -e "${COLOR_GREEN}🔗 Endpoint: ${COLOR_YELLOW}${endpoint}${COLOR_RESET}"
+        if [[ "$use_curl" == "yes" ]]; then
+          echo -e "${COLOR_GREEN}🔁 Testing via curl...${COLOR_RESET}"
+          echo -e "${COLOR_GREEN}🔗 Fetching data from ${COLOR_YELLOW}${endpoint}${COLOR_YELLOW}${COLOR_RESET}..."
+          sleep 1
+          echo -e "${COLOR_GREEN}🔗 Response:${COLOR_RESET}"
+          curl -sS "$endpoint" | jq . || echo -e "${COLOR_RED}❌ Failed to fetch: $endpoint${COLOR_RESET}"
+        fi
+        if [[ "$open_browser" == "yes" ]]; then
+          echo -e "${COLOR_GREEN}🌐 Opening in browser...${COLOR_RESET}"
+          open "$endpoint"
+        fi
+      done
+    elif [[ -n "${index_map[$choice]}" ]]; then
+      j="${index_map[$choice]}"
+      stack="${endpoints_keys[$j]}"
+      endpoint="$(echo "${endpoints_values[$j]}" | head -n 1 | awk '{print $1}' | xargs)"
+      echo -e "${COLOR_GREEN}📦 Selected endpoint: ${COLOR_YELLOW}${endpoint}${COLOR_RESET}"
+
+      if [[ "$use_curl" == "yes" ]]; then
+        echo -e "${COLOR_GREEN}🔁 Testing via curl...${COLOR_RESET}"
+        echo -e "${COLOR_GREEN}🔗 Fetching data from ${COLOR_YELLOW}${endpoint}${COLOR_RESET}..."
+        sleep 1
+        echo -e "${COLOR_GREEN}🔗 Response:${COLOR_RESET}"
+        curl -sS "$endpoint" | jq . || echo -e "${COLOR_RED}❌ Failed to parse or fetch endpoint: $endpoint${COLOR_RESET}"
+      fi
+
+      if [[ "$open_browser" == "yes" ]]; then
+        echo -e "${COLOR_GREEN}🌐 Opening in browser...${COLOR_RESET}"
+        open "$endpoint"
+      fi
+    else
+      echo -e "${COLOR_YELLOW}⚠️  Invalid selection. Skipping.${COLOR_RESET}"
+    fi
+  else
+    echo -e "${COLOR_YELLOW}⚠️  No valid endpoint selected. Skipping.${COLOR_RESET}"
+  fi
+fi
 
 echo -e "${COLOR_GREEN}✅ Deployment complete.${COLOR_RESET}"
